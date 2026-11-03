@@ -3,3 +3,7 @@ workspace/*
 __pycache__/
 *.pyc
 .env
+# Never commit the cloned HakiOS sources or built APFS images (multi-GB).
+hackios/
+logs/
+.venv/

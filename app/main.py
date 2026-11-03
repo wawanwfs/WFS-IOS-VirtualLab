@@ -18,12 +18,63 @@ LOG_DIR = ROOT / 'logs'
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 RUN_LOG = LOG_DIR / 'session.log'
 STATIC = Path(__file__).parent / 'static'
-SESSION_SECONDS = max(60, min(int(os.getenv('WFS_SESSION_SECONDS', '1200')), 3600))
+def _env_int(name, default, lo=None, hi=None):
+    """Read an int env var without crashing the app on a bad value."""
+    try:
+        value = int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    if lo is not None:
+        value = max(lo, value)
+    if hi is not None:
+        value = min(hi, value)
+    return value
+
+
+def _host_memory_gb():
+    """Total host RAM in GiB, or None when it cannot be read (non-Linux)."""
+    try:
+        with open('/proc/meminfo', 'rb') as f:
+            for line in f:
+                if line.startswith(b'MemTotal:'):
+                    return round(int(line.split()[1]) / 1024 / 1024, 1)
+    except OSError:
+        pass
+    return None
+
+
+# Human-readable explanation for every prerequisite, shown by the dashboard.
+MISSING_DETAILS = {
+    'launcher': ('Peluncur HakiOS (qemu/run-ios.sh)',
+                 'Jalankan scripts/bootstrap.sh untuk meng-clone sumber HakiOS.'),
+    'qemu_runner': ('Skrip QEMU HakiOS (qemu/run.sh)',
+                    'Jalankan scripts/bootstrap.sh untuk meng-clone sumber HakiOS.'),
+    'payload_builder': ('Pembuat payload kernel (xnuloader/mkpayload.py)',
+                        'Jalankan scripts/bootstrap.sh untuk meng-clone sumber HakiOS.'),
+    'root_image': ('Image root APFS (userland/root.apfs)',
+                   'Jalankan fetch.sh, lalu REST=1 bash userland/build.sh di hackios/.'),
+    'system_image': ('Image sistem APFS (userland/system.apfs)',
+                     'Jalankan fetch.sh, lalu REST=1 bash userland/build.sh di hackios/.'),
+    'kernel': ('Kernel XNU HakiOS (prebuilt/mach.development.bcm2837)',
+               'Jalankan scripts/bootstrap.sh untuk meng-clone sumber HakiOS.'),
+    'loader': ('Loader EFI HakiOS (prebuilt/loader.efi)',
+               'Jalankan scripts/bootstrap.sh untuk meng-clone sumber HakiOS.'),
+    'efi': ('Firmware AAVMF (AAVMF_CODE.fd)',
+            'Di dalam container Docker sudah tersedia. Di host, install paket qemu-efi-aarch64.'),
+    'efi_vars': ('Variabel firmware AAVMF (AAVMF_VARS.fd)',
+                 'Di dalam container Docker sudah tersedia. Di host, install paket qemu-efi-aarch64.'),
+    'ramfb_rom': ('ROM ramfb SeaBIOS (vgabios-ramfb.bin)',
+                  'Di dalam container Docker sudah tersedia. Di host, install paket seabios.'),
+}
+
+SESSION_SECONDS = _env_int('WFS_SESSION_SECONDS', 1200, 60, 3600)
 _lock = threading.Lock()
 _process = None
 _timer = None
 _log_thread = None
 _guest_error = None
+_session_started = None
+_session_seconds = None
 
 def pump_output(process, output):
     """Batch serial output: one Windows bind-mount write per second, not per byte."""
@@ -81,11 +132,27 @@ def get_status():
 
 @app.get('/')
 def home():
-    return FileResponse(STATIC / 'index.html')
+    # The dashboard changes often; never let a browser serve a stale copy.
+    return FileResponse(STATIC / 'index.html', headers={'Cache-Control': 'no-store'})
+
+
+def _session_timing():
+    """(elapsed, remaining) seconds for the running session, else (None, None)."""
+    if _process is None or _process.poll() is not None or _session_started is None:
+        return None, None
+    elapsed = int(time.monotonic() - _session_started)
+    remaining = None
+    if _session_seconds is not None:
+        remaining = max(0, _session_seconds - elapsed)
+    return elapsed, remaining
+
 
 @app.get('/api/status')
 def status():
     missing = prerequisites()
+    guest_ram_gb = _env_int('QEMU_RAM_GB', 7, 1)
+    host_memory_gb = _host_memory_gb()
+    elapsed, remaining = _session_timing()
     return {
         'status': get_status(),
         'repository_present': (REPO / 'qemu' / 'run-ios.sh').is_file(),
@@ -93,10 +160,16 @@ def status():
         'images_present': (REPO / 'userland' / 'root.apfs').is_file() and SYSTEM_IMAGE.is_file(),
         'session_seconds_default': SESSION_SECONDS,
         'host_logical_cpus': os.cpu_count(),
-        'guest_cpus': int(os.getenv('QEMU_SMP', '1')),
-        'guest_ram_gb': int(os.getenv('QEMU_RAM_GB', '7')),
+        'host_memory_gb': host_memory_gb,
+        'guest_cpus': _env_int('QEMU_SMP', 1, 1),
+        'guest_ram_gb': guest_ram_gb,
+        'guest_ram_fits_host': host_memory_gb is None or guest_ram_gb <= host_memory_gb,
         'ready': not missing,
         'missing': missing,
+        'missing_details': [{'name': name, 'label': MISSING_DETAILS[name][0], 'fix': MISSING_DETAILS[name][1]}
+                            for name in missing],
+        'session_elapsed_seconds': elapsed,
+        'session_seconds_remaining': remaining,
         'last_exit_code': _process.poll() if _process is not None else None,
         'guest_status': 'failed' if _guest_error else 'unverified' if get_status() == 'running' else 'stopped',
         'guest_error': _guest_error,
@@ -104,7 +177,7 @@ def status():
 
 @app.post('/api/start')
 def start(settings: Settings):
-    global _process, _timer, _log_thread, _guest_error
+    global _process, _timer, _log_thread, _guest_error, _session_started, _session_seconds
     with _lock:
         if get_status() == 'running':
             raise HTTPException(409, 'Session already running')
@@ -135,6 +208,8 @@ def start(settings: Settings):
             raise HTTPException(503, f'Cannot launch session: {exc}') from exc
         _log_thread = threading.Thread(target=pump_output, args=(_process, out), daemon=True)
         _log_thread.start()
+        _session_started = time.monotonic()
+        _session_seconds = settings.seconds
         # Bound wall-clock runtime, including image preparation. A timer belongs
         # to one process only, so an old callback cannot stop a later session.
         _timer = threading.Timer(settings.seconds + 40, stop, args=(_process,))
@@ -147,13 +222,15 @@ def stop_session():
     return stop()
 
 def stop(expected=None):
-    global _timer
+    global _timer, _session_started, _session_seconds
     with _lock:
         if expected is not None and expected is not _process:
             return {'status': 'stopped'}
         if _timer is not None:
             _timer.cancel()
         if get_status() != 'running':
+            _session_started = None
+            _session_seconds = None
             return {'status': 'stopped'}
         pid = _process.pid
         try:
@@ -176,6 +253,8 @@ def stop(expected=None):
             pass
         if _log_thread is not None:
             _log_thread.join(timeout=2)
+        _session_started = None
+        _session_seconds = None
         return {'status': 'stopped'}
 
 @app.get('/api/logs', response_class=PlainTextResponse)

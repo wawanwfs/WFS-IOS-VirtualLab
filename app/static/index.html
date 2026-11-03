@@ -1,13 +1,472 @@
-<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WFS iOS Virtual Lab</title>
-<style>body{margin:0;background:#0b1220;color:#e8edf7;font:15px system-ui,Arial}.wrap{max-width:1220px;margin:auto;padding:30px}.top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px}.brand{font-size:26px;font-weight:750}.gold{color:#d9b873}.subtitle{color:#94a3b8}.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;margin-top:24px}.panel{background:#151f30;border:1px solid #2b3850;border-radius:15px;padding:18px}.screen{width:100%;aspect-ratio:16/10;border:0;border-radius:10px;background:#050709}.controls{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}button{background:#d9b873;color:#152031;border:0;border-radius:8px;padding:10px 17px;font-weight:700;cursor:pointer}button.alt{background:#35435c;color:white}button:disabled{opacity:.45}input{width:85px;background:#0b1220;color:white;border:1px solid #52617a;padding:8px;border-radius:8px}pre{font:12px ui-monospace,monospace;white-space:pre-wrap;word-break:break-word;max-height:500px;overflow:auto;background:#0a101c;padding:12px;border-radius:8px}.tag{background:#283955;border-radius:7px;padding:6px 10px}@media(max-width:850px){.layout{grid-template-columns:1fr}.wrap{padding:14px}}</style></head><body>
-<div class="wrap"><div class="top"><div><div class="brand">WFS <span class="gold">iOS Virtual Lab</span></div><div class="subtitle">Experimental ARM64 • HakiOS • QEMU • Docker</div></div><span class="tag" id="status">Checking…</span></div>
-<div class="layout"><section class="panel"><h3>Virtual Display</h3><iframe id="screen" class="screen" title="QEMU visual display"></iframe><div class="controls"><button id="start">Start session</button><button class="alt" id="stop">Stop</button><label>Seconds <input id="seconds" type="number" value="1200" min="60" max="3600"></label></div><p class="subtitle" id="hint">Connect to the local noVNC service. Boot may take several minutes.</p></section><aside class="panel"><h3>Diagnostics</h3><div id="checks" class="subtitle">Loading…</div><h4>Latest session log</h4><pre id="logs">No logs</pre></aside></div>
-<p class="subtitle">Research only. This lab does not include Apple firmware, Apple sign-in, App Store services or any guaranteed IPA compatibility.</p></div>
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WFS iOS Virtual Lab</title>
+<style>
+:root{
+  --bg:#0b1220; --panel:#151f30; --panel-2:#0a101c; --line:#2b3850;
+  --text:#e8edf7; --muted:#94a3b8; --gold:#d9b873; --gold-dark:#152031;
+  --ok:#4ade80; --warn:#facc15; --bad:#f87171; --info:#7dd3fc;
+  --radius:15px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+a{color:var(--info)}
+button,input{font:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+.skip{position:absolute;left:-999px;top:0;background:var(--gold);color:var(--gold-dark);padding:8px 14px;font-weight:700;z-index:10}
+.skip:focus{left:8px;top:8px}
+.wrap{max-width:1240px;margin:auto;padding:24px 28px 36px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px}
+.brand{font-size:27px;font-weight:800;letter-spacing:.2px}
+.gold{color:var(--gold)}
+.subtitle{color:var(--muted);font-size:14px}
+.status-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.pill{display:inline-block;background:#283955;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-weight:700;font-size:13px;letter-spacing:.4px}
+.pill.running{border-color:#14532d;background:#052e16;color:#bbf7d0}
+.pill.failed,.pill.error{border-color:#7f1d1d;background:#450a0a;color:#fecaca}
+.pill.stopped{color:var(--text)}
+.clock{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;margin-top:22px;align-items:start}
+.col{display:grid;gap:18px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.panel h2{margin:0 0 12px;font-size:17px}
+.panel h3{margin:0 0 10px;font-size:15px}
+.screen-wrap{display:flex;justify-content:center;background:#050709;border-radius:10px;padding:10px;min-height:200px}
+.screen{border:0;border-radius:8px;background:#050709;height:min(72vh,150vw);aspect-ratio:1125/2436;width:auto;max-width:100%}
+.screen-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button{border:0;border-radius:8px;padding:10px 17px;font-weight:700;cursor:pointer}
+button.primary{background:var(--gold);color:var(--gold-dark)}
+button.secondary{background:#35435c;color:#fff}
+button.danger{background:#7f1d1d;color:#fff}
+button.ghost{background:transparent;color:var(--text);border:1px solid var(--line);font-weight:600;padding:8px 12px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.armed{background:var(--bad);color:#fff}
+.hint{color:var(--muted);font-size:13.5px;margin:12px 0 0}
+.banner{display:none;margin-top:12px;padding:11px 13px;border-radius:9px;font-size:14px}
+.banner.show{display:block}
+.banner.error{background:#450a0a;border:1px solid #7f1d1d;color:#fecaca}
+.banner.warn{background:#422006;border:1px solid #92400e;color:#fde68a}
+.progress{margin-top:14px}
+.progress[hidden]{display:none}
+.progress-track{height:9px;background:var(--panel-2);border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.progress-fill{height:100%;width:0;background:var(--gold);transition:width .6s ease}
+.progress-label{color:var(--muted);font-size:13px;margin-top:6px;font-variant-numeric:tabular-nums}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin:4px 0 6px}
+.presets{display:flex;gap:6px;flex-wrap:wrap}
+.presets button{background:#0b1220;color:var(--text);border:1px solid #52617a;padding:8px 12px;font-weight:600}
+.presets button[aria-pressed="true"]{background:var(--gold);color:var(--gold-dark);border-color:var(--gold)}
+.field{display:grid;gap:5px;font-size:13px;color:var(--muted)}
+.field input{width:110px;background:#0b1220;color:#fff;border:1px solid #52617a;padding:9px 10px;border-radius:8px}
+.field-error{color:var(--bad);font-size:13px;min-height:19px;margin:2px 0 0}
+.checks{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.checks li{display:flex;gap:9px;align-items:flex-start}
+.dot{flex:none;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;margin-top:1px}
+.dot.ok{background:#052e16;color:var(--ok);border:1px solid #14532d}
+.dot.bad{background:#450a0a;color:var(--bad);border:1px solid #7f1d1d}
+.check-label{font-weight:600}
+.check-fix{color:var(--muted);font-size:13px}
+.missing-list{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+.missing-list li{font-size:13.5px}
+.missing-list .check-label{display:block}
+dl.system{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:14px}
+dl.system dt{color:var(--muted)}
+dl.system dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.log-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:13px;color:var(--muted)}
+.log-tools label{display:inline-flex;gap:5px;align-items:center;cursor:pointer}
+pre#logs{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto;background:var(--panel-2);padding:12px;border-radius:8px;margin:0;border:1px solid var(--line)}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#1e293b;border:1px solid var(--line);color:var(--text);padding:11px 16px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;max-width:min(92vw,560px);text-align:center;z-index:20}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.error{border-color:#7f1d1d;background:#450a0a;color:#fecaca}
+.footnote{color:var(--muted);font-size:13px;margin-top:22px}
+@media(max-width:1000px){.layout{grid-template-columns:1fr}.status-wrap{align-items:flex-start}}
+@media(max-width:640px){
+  .wrap{padding:16px 14px 28px}
+  .brand{font-size:22px}
+  .screen{height:min(66vh,170vw)}
+}
+@media(prefers-reduced-motion:reduce){.progress-fill{transition:none}.toast{transition:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#screen">Lewati ke tampilan virtual</a>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="brand">WFS <span class="gold">iOS Virtual Lab</span></div>
+      <div class="subtitle">Riset eksperimental &middot; ARM64 &middot; HakiOS &middot; QEMU &middot; Docker</div>
+    </div>
+    <div class="status-wrap">
+      <span class="pill stopped" id="statusPill" aria-live="polite">Memeriksa&hellip;</span>
+      <span class="clock" id="clock"></span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="col">
+      <section class="panel" aria-labelledby="displayTitle">
+        <h2 id="displayTitle">Tampilan Virtual</h2>
+        <div class="screen-wrap">
+          <iframe id="screen" class="screen" title="Tampilan virtual QEMU (noVNC)"></iframe>
+        </div>
+        <div class="screen-actions">
+          <button type="button" class="ghost" id="reloadDisplay">Muat ulang tampilan</button>
+          <a id="openDisplay" class="ghost" href="#" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;padding:8px 12px">Buka tampilan di tab baru</a>
+        </div>
+        <div class="banner error" id="guestBanner" role="alert"></div>
+        <div class="banner warn" id="ramBanner" role="alert"></div>
+        <div class="progress" id="sessionProgress" hidden>
+          <div class="progress-track" role="progressbar" aria-label="Progres sesi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-label" id="progressLabel"></div>
+        </div>
+        <p class="hint">Klik untuk menyentuh. Seret dari tepi bawah ke atas untuk Home, tekan L untuk kunci/bangun. Boot lewat emulasi bisa memakan waktu lama, jadi biarkan sesi berjalan.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="controlsTitle">
+        <h2 id="controlsTitle">Kontrol Sesi</h2>
+        <div class="controls">
+          <div class="field">
+            <span id="presetsLabel">Durasi cepat</span>
+            <div class="presets" role="group" aria-labelledby="presetsLabel" id="presets">
+              <button type="button" data-seconds="60">1 menit</button>
+              <button type="button" data-seconds="300">5 menit</button>
+              <button type="button" data-seconds="1200" aria-pressed="true">20 menit</button>
+              <button type="button" data-seconds="3600">60 menit</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="seconds">Durasi (detik)</label>
+            <input id="seconds" type="number" value="1200" min="60" max="3600" step="60" inputmode="numeric">
+          </div>
+          <button type="button" class="primary" id="startBtn">Mulai sesi</button>
+          <button type="button" class="danger" id="stopBtn" disabled>Berhenti</button>
+        </div>
+        <p class="field-error" id="durationError" role="alert"></p>
+        <p class="hint" id="readyHint">Memeriksa prasyarat&hellip;</p>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-labelledby="diagTitle">
+        <h2 id="diagTitle">Diagnostik</h2>
+        <ul class="checks" id="checks"></ul>
+        <ul class="missing-list" id="missingList"></ul>
+      </section>
+
+      <section class="panel" aria-labelledby="systemTitle">
+        <h2 id="systemTitle">Sistem</h2>
+        <dl class="system" id="systemInfo"></dl>
+      </section>
+
+      <section class="panel" aria-labelledby="logsTitle">
+        <h2 id="logsTitle">Log Sesi Terakhir</h2>
+        <div class="log-tools">
+          <label><input type="checkbox" id="autoRefresh" checked> Otomatis</label>
+          <label><input type="checkbox" id="autoScroll" checked> Gulir otomatis</label>
+          <button type="button" class="ghost" id="copyLogs">Salin log</button>
+          <button type="button" class="ghost" id="refreshLogs">Muat ulang</button>
+        </div>
+        <pre id="logs">Belum ada log.</pre>
+      </section>
+    </div>
+  </div>
+
+  <p class="footnote">Hanya untuk riset. Lab ini tidak menyertakan firmware Apple, tidak bisa masuk akun Apple, tidak menjanjikan App Store, dan tidak menjamin semua aplikasi bisa jalan. Jangan publikasikan port ini ke internet.</p>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 <script>
-const api=async(path,options)=>{const res=await fetch(path,options);const d=await res.json().catch(()=>({}));if(!res.ok)throw new Error((typeof d.detail==='string'?d.detail:JSON.stringify(d.detail))||'API error');return d};
-const screen=document.getElementById('screen');let initialized=false;screen.src=location.protocol+'//'+location.hostname+':6080/vnc.html?autoconnect=true&resize=scale&show_dot=true&view_only=false&reconnect=true';
-async function refresh(){try{const s=await api('/api/status');if(!initialized){document.getElementById('seconds').value=s.session_seconds_default;initialized=true;}document.getElementById('status').textContent=s.guest_status==='failed'?'FAILED':s.status.toUpperCase();document.getElementById('checks').innerHTML=`Repository: ${s.repository_present?'ready':'missing'}<br>Userland: ${s.userland_present?'present':'missing'}<br>APFS images: ${s.images_present?'present':'missing'}`;document.getElementById('start').disabled=s.status==='running'||!s.ready;if(s.guest_error)document.getElementById('hint').textContent='iOS stopped with a kernel error. Stop the session and inspect the log.';else if(!s.ready)document.getElementById('hint').textContent='Missing prerequisites: '+s.missing.join(', ');else document.getElementById('hint').textContent=s.status==='running'?'Session running. Wait for the iOS screen to finish startup. Klik untuk menyentuh; seret dari tepi bawah ke atas untuk Home. L: kunci/bangun.':'Ready to start. Klik untuk menyentuh; seret dari tepi bawah ke atas untuk Home. L: kunci/bangun.';document.getElementById('stop').disabled=s.status!=='running';document.getElementById('logs').textContent=await (await fetch('/api/logs')).text()}catch(e){document.getElementById('hint').textContent=e.message}}
-document.getElementById('start').onclick=async()=>{try{await api('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seconds:Number(document.getElementById('seconds').value)})});refresh()}catch(e){alert(e.message)}};
-document.getElementById('stop').onclick=async()=>{try{await api('/api/stop',{method:'POST'});refresh()}catch(e){alert(e.message)}};
-refresh();setInterval(refresh,4000);
-</script></body></html>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const pill = $('statusPill'), clockEl = $('clock'), checksEl = $('checks'),
+  missingEl = $('missingList'), systemEl = $('systemInfo'), logsEl = $('logs'),
+  startBtn = $('startBtn'), stopBtn = $('stopBtn'), secondsInput = $('seconds'),
+  durationError = $('durationError'), readyHint = $('readyHint'),
+  guestBanner = $('guestBanner'), ramBanner = $('ramBanner'),
+  progressBox = $('sessionProgress'), progressBar = $('progressBar'),
+  progressFill = $('progressFill'), progressLabel = $('progressLabel'),
+  toastEl = $('toast'), screen = $('screen');
+
+let initialized = false;
+let pollTimer = null;
+let toastTimer = null;
+let stopArmedTimer = null;
+let stopArmed = false;
+let displayUrl = '';
+
+function fmtDuration(totalSeconds) {
+  const s = Math.max(0, Math.round(totalSeconds));
+  const m = Math.floor(s / 60), r = s % 60;
+  return m > 0 ? `${m} mnt ${r} dtk` : `${r} dtk`;
+}
+
+function showToast(message, isError) {
+  toastEl.textContent = message;
+  toastEl.classList.toggle('error', !!isError);
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 4200);
+}
+
+async function api(path, options) {
+  const res = await fetch(path, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+    throw new Error(detail || 'Kesalahan API');
+  }
+  return data;
+}
+
+function setDisplayUrl() {
+  displayUrl = location.protocol + '//' + location.hostname +
+    ':6080/vnc.html?autoconnect=true&resize=scale&show_dot=true&view_only=false&reconnect=true';
+  screen.src = displayUrl;
+  $('openDisplay').href = displayUrl;
+}
+
+function reloadDisplay() {
+  try {
+    screen.contentWindow.location.reload();
+  } catch (e) {
+    screen.src = displayUrl;
+  }
+  showToast('Tampilan dimuat ulang.');
+}
+
+function checkRow(label, ok) {
+  const li = document.createElement('li');
+  const dot = document.createElement('span');
+  dot.className = 'dot ' + (ok ? 'ok' : 'bad');
+  dot.textContent = ok ? '✓' : '✕';
+  const text = document.createElement('span');
+  text.className = 'check-label';
+  text.textContent = label;
+  const state = document.createElement('span');
+  state.className = 'check-fix';
+  state.textContent = ok ? ' siap' : ' belum ada';
+  li.append(dot, text, state);
+  return li;
+}
+
+function systemRow(term, value) {
+  const dt = document.createElement('dt');
+  dt.textContent = term;
+  const dd = document.createElement('dd');
+  dd.textContent = value;
+  systemEl.append(dt, dd);
+}
+
+function renderStatus(s) {
+  if (!initialized) {
+    secondsInput.value = s.session_seconds_default;
+    syncPresetButtons(s.session_seconds_default);
+    initialized = true;
+  }
+
+  const running = s.status === 'running';
+  const failed = s.guest_status === 'failed';
+  pill.textContent = failed ? 'GAGAL' : running ? 'BERJALAN' : 'BERHENTI';
+  pill.className = 'pill ' + (failed ? 'failed' : running ? 'running' : 'stopped');
+
+  checksEl.replaceChildren(
+    checkRow('Repositori HakiOS', s.repository_present),
+    checkRow('Userland HakiOS', s.userland_present),
+    checkRow('Image APFS', s.images_present)
+  );
+
+  missingEl.replaceChildren();
+  for (const item of (s.missing_details || [])) {
+    const li = document.createElement('li');
+    const label = document.createElement('span');
+    label.className = 'check-label';
+    label.textContent = 'Belum ada: ' + item.label;
+    const fix = document.createElement('span');
+    fix.className = 'check-fix';
+    fix.textContent = item.fix;
+    li.append(label, document.createElement('br'), fix);
+    missingEl.append(li);
+  }
+
+  systemEl.replaceChildren();
+  systemRow('CPU host', s.host_logical_cpus == null ? 'tidak diketahui' : String(s.host_logical_cpus) + ' inti logis');
+  systemRow('RAM host', s.host_memory_gb == null ? 'tidak diketahui' : s.host_memory_gb + ' GB');
+  systemRow('CPU guest', String(s.guest_cpus));
+  systemRow('RAM guest', s.guest_ram_gb + ' GB');
+  systemRow('Durasi default', fmtDuration(s.session_seconds_default));
+  if (s.last_exit_code != null) systemRow('Kode keluar terakhir', String(s.last_exit_code));
+
+  if (s.host_memory_gb != null && !s.guest_ram_fits_host) {
+    ramBanner.textContent = `Peringatan: RAM host ${s.host_memory_gb} GB lebih kecil dari RAM guest ${s.guest_ram_gb} GB. Sesi kemungkinan kehabisan memori sebelum iOS selesai boot.`;
+    ramBanner.classList.add('show');
+  } else {
+    ramBanner.textContent = '';
+    ramBanner.classList.remove('show');
+  }
+
+  if (s.guest_error) {
+    guestBanner.textContent = 'iOS berhenti karena kesalahan kernel: ' + s.guest_error +
+      ' Hentikan sesi dan periksa log.';
+    guestBanner.classList.add('show');
+  } else {
+    guestBanner.textContent = '';
+    guestBanner.classList.remove('show');
+  }
+
+  if (!s.ready) {
+    readyHint.textContent = 'Prasyarat belum lengkap: ' + s.missing.join(', ') + '. Sesi belum bisa dimulai.';
+  } else if (running) {
+    readyHint.textContent = 'Sesi berjalan. Tunggu layar iOS selesai startup, bisa memakan waktu lama lewat emulasi.';
+  } else {
+    readyHint.textContent = 'Siap dimulai. Klik untuk menyentuh, seret dari tepi bawah ke atas untuk Home, L untuk kunci/bangun.';
+  }
+
+  startBtn.disabled = running || !s.ready;
+  stopBtn.disabled = !running;
+  if (!running) disarmStop();
+
+  if (running && s.session_elapsed_seconds != null && s.session_seconds_remaining != null) {
+    const total = s.session_elapsed_seconds + s.session_seconds_remaining;
+    const pct = total > 0 ? Math.round((s.session_elapsed_seconds / total) * 100) : 0;
+    progressBox.hidden = false;
+    progressFill.style.width = pct + '%';
+    progressBar.setAttribute('aria-valuenow', String(pct));
+    progressLabel.textContent = `Berjalan ${fmtDuration(s.session_elapsed_seconds)} · sisa ${fmtDuration(s.session_seconds_remaining)} dari ${fmtDuration(total)}. Sesi berhenti otomatis saat durasi habis.`;
+    clockEl.textContent = 'Sesi: ' + fmtDuration(s.session_elapsed_seconds);
+  } else {
+    progressBox.hidden = true;
+    clockEl.textContent = running ? 'Sesi berjalan' : '';
+  }
+}
+
+async function refreshLogs() {
+  try {
+    const text = await (await fetch('/api/logs')).text();
+    const nearBottom = logsEl.scrollHeight - logsEl.scrollTop - logsEl.clientHeight < 40;
+    logsEl.textContent = text;
+    if ($('autoScroll').checked && nearBottom) logsEl.scrollTop = logsEl.scrollHeight;
+  } catch (e) {
+    logsEl.textContent = 'Log tidak bisa dimuat: ' + e.message;
+  }
+}
+
+async function refresh() {
+  try {
+    const s = await api('/api/status');
+    renderStatus(s);
+    if ($('autoRefresh').checked) await refreshLogs();
+  } catch (e) {
+    pill.textContent = 'TIDAK TERJANGKAU';
+    pill.className = 'pill error';
+    readyHint.textContent = 'Dashboard tidak bisa dihubungi: ' + e.message;
+    startBtn.disabled = true;
+  }
+}
+
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(refresh, 4000);
+}
+function stopPolling() {
+  clearInterval(pollTimer);
+  pollTimer = null;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopPolling();
+  else { refresh(); startPolling(); }
+});
+
+function syncPresetButtons(value) {
+  for (const btn of document.querySelectorAll('#presets button')) {
+    btn.setAttribute('aria-pressed', String(Number(btn.dataset.seconds) === Number(value)));
+  }
+}
+
+for (const btn of document.querySelectorAll('#presets button')) {
+  btn.addEventListener('click', () => {
+    secondsInput.value = btn.dataset.seconds;
+    durationError.textContent = '';
+    syncPresetButtons(btn.dataset.seconds);
+    secondsInput.focus();
+  });
+}
+secondsInput.addEventListener('input', () => {
+  durationError.textContent = '';
+  syncPresetButtons(secondsInput.value);
+});
+
+function validSeconds() {
+  const value = Number(secondsInput.value);
+  if (!Number.isInteger(value) || value < 60 || value > 3600) {
+    durationError.textContent = 'Durasi harus bilangan bulat 60 sampai 3600 detik.';
+    return null;
+  }
+  return value;
+}
+
+startBtn.addEventListener('click', async () => {
+  const seconds = validSeconds();
+  if (seconds == null) return;
+  startBtn.disabled = true;
+  try {
+    await api('/api/start', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({seconds})
+    });
+    showToast('Sesi dimulai untuk ' + fmtDuration(seconds) + '.');
+    await refresh();
+  } catch (e) {
+    showToast('Sesi gagal dimulai: ' + e.message, true);
+    await refresh();
+  }
+});
+
+function disarmStop() {
+  stopArmed = false;
+  clearTimeout(stopArmedTimer);
+  stopBtn.textContent = 'Berhenti';
+  stopBtn.classList.remove('armed');
+}
+stopBtn.addEventListener('click', async () => {
+  if (!stopArmed) {
+    stopArmed = true;
+    stopBtn.textContent = 'Klik lagi untuk berhenti';
+    stopBtn.classList.add('armed');
+    stopArmedTimer = setTimeout(disarmStop, 4000);
+    return;
+  }
+  disarmStop();
+  stopBtn.disabled = true;
+  try {
+    await api('/api/stop', {method: 'POST'});
+    showToast('Sesi dihentikan.');
+    await refresh();
+  } catch (e) {
+    showToast('Sesi gagal dihentikan: ' + e.message, true);
+    await refresh();
+  }
+});
+
+$('reloadDisplay').addEventListener('click', reloadDisplay);
+$('refreshLogs').addEventListener('click', refreshLogs);
+$('copyLogs').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(logsEl.textContent);
+    showToast('Log disalin.');
+  } catch (e) {
+    showToast('Log tidak bisa disalin otomatis, salin manual dari panel log.', true);
+  }
+});
+
+setDisplayUrl();
+refresh();
+startPolling();
+</script>
+</body>
+</html>

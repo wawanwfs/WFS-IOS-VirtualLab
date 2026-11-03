@@ -31,7 +31,19 @@ docker compose up -d --build
 The initial dashboard works without an iOS image, and clearly reports missing dependencies.
 The generic Compose profile assigns one emulated CPU and defaults to a 3600-second session. `WFS_QEMU_CPUS` and `WFS_QEMU_BOOT_ARGS` can override the guest CPU count and additional kernel arguments. On this 4-core/8-thread workstation, the local `.env` selects 8 guest CPUs and `tlto_us=30000000 slto_us=30000000`: XNU's ticket/spinlock timeouts are extended to 30 seconds to accommodate software emulation. The unmodified four-CPU profile previously panicked. The eight-CPU preflight passed init, service and surface checks; full interface validation is recorded in `docs/VALIDATION.md`. CPU emulation remains slow; use the duration control to choose 60 to 3600 seconds.
 
-The display shows a crosshair cursor. Click to touch; drag up from the bottom edge for Home, and use L to lock/wake. Hover movements stay local, drag updates are limited to 10 per second, and leaving the browser releases a held pointer button. Reload the dashboard with Ctrl+F5 after updating the display code.
+The display shows a crosshair cursor. Click to touch; drag up from the bottom edge for Home, and use L to lock/wake. Hover movements stay local, drag updates are limited to 10 per second, and leaving the browser releases a held pointer button. The dashboard is served with `Cache-Control: no-store`, so a browser never shows a stale copy after the display code changes.
+
+## Dashboard
+
+The dashboard is in Indonesian. It shows the live session status, a session countdown with automatic-stop progress, a checklist of every missing prerequisite with the exact fix for each one, host vs guest RAM (with a warning when the guest RAM does not fit the host), the guest kernel-error banner when a boot panics, and the tail of the session log with copy/refresh controls. Stopping a session needs two clicks, so a stray click cannot kill a slow boot. The virtual display is a portrait phone frame; use the "Buka tampilan di tab baru" link if the embedded noVNC frame feels cramped.
+
+Dashboard-only mode (no guest, no Docker) is useful for checking the manager itself:
+
+```bash
+python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt -r requirements-dev.txt
+WFS_WORKSPACE=$PWD .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+# http://127.0.0.1:8000/api/status reports ready:false until HakiOS and the images exist
+```
 
 ## Prepare HakiOS
 

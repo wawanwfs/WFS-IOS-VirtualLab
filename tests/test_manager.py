@@ -96,6 +96,49 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(self.client.get('/').status_code, 200)
         self.assertIn('No session logs', self.client.get('/api/logs').text)
 
+    def test_home_serves_indonesian_dashboard(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('no-store', response.headers.get('cache-control', ''))
+        body = response.text
+        self.assertIn('<html lang="id">', body)
+        self.assertIn('Mulai sesi', body)
+        self.assertIn('Diagnostik', body)
+        self.assertIn('vnc.html', body)
+
+    def test_status_reports_host_memory_and_missing_details(self):
+        status = self.client.get('/api/status').json()
+        self.assertIn('host_memory_gb', status)
+        self.assertIn('guest_ram_fits_host', status)
+        self.assertIn('session_elapsed_seconds', status)
+        self.assertIn('session_seconds_remaining', status)
+        self.assertIsNone(status['session_elapsed_seconds'])
+        self.assertEqual([d['name'] for d in status['missing_details']],
+                         status['missing'])
+        for detail in status['missing_details']:
+            self.assertIn('label', detail)
+            self.assertIn('fix', detail)
+
+    def test_bad_env_values_do_not_crash_status(self):
+        with patch.dict(os.environ, {'WFS_SESSION_SECONDS': 'bukan-angka',
+                                     'QEMU_SMP': 'x', 'QEMU_RAM_GB': ''}):
+            importlib.reload(self.manager)
+            try:
+                client = TestClient(self.manager.app)
+                with client:
+                    status = client.get('/api/status').json()
+                self.assertEqual(status['session_seconds_default'], 1200)
+                self.assertEqual(status['guest_cpus'], 1)
+                self.assertEqual(status['guest_ram_gb'], 7)
+            finally:
+                # Restore the fixture environment this test class expects.
+                with patch.dict(os.environ, {'WFS_WORKSPACE': self.temp.name,
+                                             'WFS_SYSTEM_IMAGE': str(Path(self.temp.name) / 'hackios/userland/system.apfs'),
+                                             'WFS_RUNTIME': str(Path(self.temp.name) / 'runtime')}):
+                    importlib.reload(self.manager)
+                self.context = TestClient(self.manager.app)
+                self.client = self.context.__enter__()
+
     def test_launch_error_is_reported(self):
         with patch.object(self.manager, 'prerequisites', return_value=[]), \
              patch.object(self.manager.subprocess, 'Popen', side_effect=OSError('launcher unavailable')):
