@@ -1,0 +1,7 @@
+{
+  "automatic_stop_seen": true,
+  "status": "stopped",
+  "last_exit_code": -15,
+  "qemu_remaining": [],
+  "observed_wait_seconds": 112.83
+}

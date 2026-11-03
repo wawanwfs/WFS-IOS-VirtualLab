@@ -1,0 +1,8 @@
+{
+  "fixture": true,
+  "status": "FAILED",
+  "hint": "iOS stopped with a kernel error. Stop the session and inspect the log.",
+  "startDisabled": true,
+  "stopEnabled": true,
+  "errors": []
+}

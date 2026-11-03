@@ -1,0 +1,23 @@
+[
+  {
+    "payload": {
+      "seconds": 59
+    },
+    "status": 422,
+    "expected": 422
+  },
+  {
+    "payload": {
+      "seconds": 3601
+    },
+    "status": 422,
+    "expected": 422
+  },
+  {
+    "payload": {
+      "seconds": 1200
+    },
+    "status": 409,
+    "expected": 409
+  }
+]

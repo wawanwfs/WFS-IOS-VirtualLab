@@ -1,0 +1,12 @@
+[
+  {
+    "session_index": 5,
+    "panic": "panic(cpu 0 caller 0xfffffff007a9a858): Ticket spinlock[0xfffffff007b90880] timeout after 72173810 ticks; cticket: 0x66, nticket: 0x68, waiting for 0x67, current owner: 0 (on CPU -1), orig owner: 0xfffffff5dea2e4e8, start time: 118840697147, now: 118912870957, timeout: 60000000 @lock_ticket.c:386",
+    "saved": "panic-session-5.txt"
+  },
+  {
+    "session_index": 6,
+    "panic": "panic(cpu 0 caller 0xfffffff007a9a858): Ticket spinlock[0xfffffff007b90880] timeout after 67932401 ticks; cticket: 0xd0, nticket: 0xd4, waiting for 0xd0, current owner: 0 (on CPU -1), orig owner: 0xfffffff7e0c50c10, start time: 34107035975, now: 34174968376, timeout: 60000000 @lock_ticket.c:386",
+    "saved": "panic-session-6.txt"
+  }
+]

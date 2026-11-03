@@ -1,0 +1,32 @@
+[
+  {
+    "path": "/System/Library/CoreServices/SpringBoard.app/SpringBoard",
+    "bytes": 112048,
+    "sha256": "7926a1ba0b115cf45102b2c3d8e4eb7bc9c84bcf70b573d2a798690d9148059c",
+    "matches": true
+  },
+  {
+    "path": "/System/Library/CoreServices/SpringBoard.app/Info.plist",
+    "bytes": 4367,
+    "sha256": "2357c9d12af0d70ec201d5566d093e06da6ab6da3c48374c593cad2663839c7a",
+    "matches": true
+  },
+  {
+    "path": "/System/Library/CoreServices/SpringBoard.app/Assets.car",
+    "bytes": 152216,
+    "sha256": "12fcebe8502705f76ed11f023770137763edf286e355765fc2ae4be57ec244cc",
+    "matches": true
+  },
+  {
+    "path": "/usr/libexec/backboardd",
+    "bytes": 1182960,
+    "sha256": "686f26a6a7b749fd0ae30acca704022da8cb6f85b5c39a0e0e09e25ffd00d273",
+    "matches": true
+  },
+  {
+    "path": "/usr/libexec/lsd",
+    "bytes": 57424,
+    "sha256": "cb9a5082ac7448e1ff8ee30e45925909568f39e6f4dc30e0bbbdf4332c27d0e4",
+    "matches": true
+  }
+]

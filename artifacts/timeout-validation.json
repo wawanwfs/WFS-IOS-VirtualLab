@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "requested_seconds": 60,
+  "wall_limit_seconds": 100,
+  "elapsed_seconds": 100.41,
+  "status": "stopped",
+  "child_terminated": true
+}

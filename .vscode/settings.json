@@ -1,0 +1,12 @@
+{
+    "python.terminal.useEnvFile": true,
+    "files.watcherExclude": {
+        "**/workspace/**": true,
+        "**/artifacts/**": true
+    },
+    "search.exclude": {
+        "workspace/**": true,
+        "artifacts/**": true
+    },
+    "python.analysis.exclude": ["workspace/**", "artifacts/**"]
+}

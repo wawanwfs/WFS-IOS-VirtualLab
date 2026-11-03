@@ -1,0 +1,31 @@
+services:
+  wfs-ios-lab:
+    build: .
+    container_name: wfs-ios-virtual-lab
+    init: true
+    shm_size: 1gb
+    ports:
+      - '127.0.0.1:8000:8000'
+      - '127.0.0.1:6080:6080'
+    volumes:
+      - ./workspace:/workspace
+      - qemu-runtime:/var/lib/wfs
+    environment:
+      - WFS_WORKSPACE=/workspace
+      - WFS_SESSION_SECONDS=3600
+      - WFS_SYSTEM_IMAGE=${WFS_SYSTEM_IMAGE:-/workspace/hackios/userland/system.apfs}
+      - QEMU_RAM_GB=${QEMU_RAM_GB:-7}
+      - QEMU_SMP=${WFS_QEMU_CPUS:-1}
+      - CMDLINE=cpus=${WFS_QEMU_CPUS:-1} ${WFS_QEMU_BOOT_ARGS:-}
+      - DISPLAY=:99
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/opt/wfs/.venv/bin/python", "-c", "import socket,urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/status',timeout=3); [socket.create_connection(('127.0.0.1',p),3).close() for p in (5900,6080)]"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  qemu-runtime:

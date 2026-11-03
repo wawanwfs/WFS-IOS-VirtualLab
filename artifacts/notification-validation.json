@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "service_test_pids": [
+    "8",
+    "12"
+  ],
+  "delivery_waits_seconds": [
+    "0.062",
+    "0.095"
+  ],
+  "init_checks_passed": true,
+  "elapsed_seconds": 68.03,
+  "log": "/var/lib/wfs/diagnostics/notify-run/console.log"
+}

@@ -1,0 +1,19 @@
+{
+  "matches": true,
+  "images": [
+    {
+      "image": "/var/lib/wfs/hakios/userland/system.apfs",
+      "entries": 62261,
+      "content_and_metadata_digest": "d5d99ce98f91690cb4bbeee40b803c4defd5d1c5a9648a2e38b1a11050decb29",
+      "elapsed_seconds": 71.16,
+      "reader_report": "apfs-tool: 62261 entries, 12135 blocks read, 2249585 cache hits; 35208 neighbours brought in, 12370 of them asked for\napfs-tool: inflate 87308 calls, 2225545414 bytes in, 5407851614 bytes out, 0 by zlib\napfs-tool: 87308 requests of whole pieces, 87308 pieces in them, on 1 threads at most; read ahead 0 times, 0 pieces, 0 of them used\napfs-tool: highest block touched 604412 (2.48 GB in), of which file contents reach 604414 (2.48 GB in)\n"
+    },
+    {
+      "image": "/var/lib/wfs/diagnostics/system-cache-plain.apfs",
+      "entries": 62261,
+      "content_and_metadata_digest": "d5d99ce98f91690cb4bbeee40b803c4defd5d1c5a9648a2e38b1a11050decb29",
+      "elapsed_seconds": 50.52,
+      "reader_report": "apfs-tool: 62261 entries, 12117 blocks read, 2284153 cache hits; 35056 neighbours brought in, 12272 of them asked for\napfs-tool: inflate 45749 calls, 1232184336 bytes in, 2685338718 bytes out, 0 by zlib\napfs-tool: 45749 requests of whole pieces, 45749 pieces in them, on 1 threads at most; read ahead 0 times, 0 pieces, 0 of them used\napfs-tool: highest block touched 1028019 (4.21 GB in), of which file contents reach 1028021 (4.21 GB in)\n"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+/* Keep the workstation pointer visible when QEMU hides its tablet cursor. */
+#noVNC_container, #noVNC_container canvas { cursor: crosshair !important; }

@@ -1,0 +1,17 @@
+{
+    "status":  "running",
+    "repository_present":  true,
+    "userland_present":  true,
+    "images_present":  true,
+    "session_seconds_default":  3600,
+    "host_logical_cpus":  8,
+    "guest_cpus":  8,
+    "guest_ram_gb":  10,
+    "ready":  true,
+    "missing":  [
+
+                ],
+    "last_exit_code":  null,
+    "guest_status":  "unverified",
+    "guest_error":  null
+}
