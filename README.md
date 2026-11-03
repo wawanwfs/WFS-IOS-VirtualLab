@@ -138,6 +138,23 @@ WFS_WORKSPACE=$PWD .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --p
 
 Mode ini tidak menyediakan QEMU, firmware, Xvfb, maupun noVNC, jadi tampilan virtual (port 6080) tidak ada dan sesi guest tidak bisa dimulai. Untuk sesi guest, jalankan lewat Docker Compose.
 
+### Mode native di host Ubuntu (tanpa Docker)
+
+Di host Ubuntu 24.04, sesi guest juga bisa dijalankan langsung tanpa Docker, dengan QEMU dan firmware yang diinstall di host. Jalur ini terverifikasi di VM ini pada 2026-11-04 (QEMU 8.2.2, `/api/status` melaporkan `ready: true`, Xvfb/x11vnc/noVNC berjalan), tetapi belum ada sesi guest yang di-boot lewat jalur ini:
+
+```bash
+sudo bash scripts/install-native-host.sh
+# Menginstall: qemu-system-arm, qemu-efi-aarch64, qemu-utils, xvfb, x11vnc,
+# novnc, websockify, qemu-system-gui, seabios, ipxe-qemu; membuat
+# /var/lib/wfs/hakios (tempat staging runtime); memulai Xvfb :99,
+# x11vnc di 5900, dan noVNC di 6080.
+WFS_WORKSPACE=$PWD .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+# http://127.0.0.1:8000 — /api/status harus melaporkan ready:true
+# http://127.0.0.1:6080/vnc.html — tampilan virtual (hitam sampai sesi dimulai)
+```
+
+Batasnya: paket apt dan file di `/usr/share` tidak bertahan kalau VM diganti (hanya folder home yang persisten), jadi jalankan ulang skrip ini setelah VM diganti. Boot tetap lewat emulasi TCG dan bisa sangat lambat; tidak ada KVM di VM ini. Skrip ini tidak men-clone HakiOS, tidak mengambil IPSW, dan tidak membangun image — langkah itu tetap ada di [Menyiapkan HakiOS dan image iOS](#menyiapkan-hakios-dan-image-ios).
+
 ## Menyiapkan HakiOS dan image iOS
 
 Urutan langkahnya harus diikuti apa adanya: **bootstrap → fetch → build**. Jangan melompati `fetch.sh`: image tidak diunduh otomatis oleh manager, dan tidak ada image bawaan di repo ini.
