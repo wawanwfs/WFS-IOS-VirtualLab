@@ -1,4 +1,4 @@
-# WFS iOS Virtual Lab — Fase 1 (eksperimental)
+# WFS iOS Virtual Lab
 
 Dashboard lokal dan harness riset dalam container untuk target QEMU HakiOS: kernel XNU sumber-terbuka yang di-port ke ARM64, dijalankan di atas QEMU di workstation x86_64 lewat emulasi.
 
@@ -21,7 +21,7 @@ Dashboard lokal dan harness riset dalam container untuk target QEMU HakiOS: kern
 - [Keamanan dan batasan](#keamanan-dan-batasan)
 - [Struktur proyek](#struktur-proyek)
 - [Pengembangan dan pengujian](#pengembangan-dan-pengujian)
-- [Rencana Fase 2](#rencana-fase-2)
+- [Rencana pengembangan berikutnya](#rencana-pengembangan-berikutnya)
 - [Sumber](#sumber)
 
 ## Ringkasan
@@ -401,7 +401,7 @@ Model keamanan proyek ini: **workstation lokal tepercaya milik satu pengguna**. 
 - **Tidak ada akun Apple.** Proyek ini tidak bisa dan tidak bertujuan masuk ke akun Apple, mengunduh dari App Store, memakai seluler, atau menjalankan IPA secara umum.
 - **Tidak ada image yang diunduh otomatis.** Pengguna mengontrol secara eksplisit pengunduhan dan pemrosesan IPSW. Jangan mendistribusikan ekstrak IPSW, image userland, atau file tanpa hak yang sesuai; baca ketentuan Apple.
 - **State tidak persisten antar restart API.** Runtime state hidup di proses API; restart service tidak menempel kembali ke proses QEMU yang sudah berjalan.
-- **Sumber daya tidak dibatasi per pengguna.** Tidak ada kuota, overlay per-VM, snapshot, autentikasi, RBAC, maupun audit di Fase 1. Itu semua masuk rencana Fase 2 dan tidak boleh diasumsikan sudah ada.
+- **Sumber daya tidak dibatasi per pengguna.** Tidak ada kuota, overlay per-VM, snapshot, autentikasi, RBAC, maupun audit di versi saat ini. Itu semua masuk rencana pengembangan berikutnya dan tidak boleh diasumsikan sudah ada.
 
 ## Struktur proyek
 
@@ -455,7 +455,7 @@ Konvensi yang dijaga di kode ini:
 - Jangan mengklaim boot berhasil hanya karena container `healthy`. Buktinya adalah layar guest dan log boot, bukan healthcheck.
 - Jangan meng-commit file besar hasil build. Kalau ragu, periksa `git status` sebelum commit.
 
-## Rencana Fase 2
+## Rencana pengembangan berikutnya
 
 1. Pin dan verifikasi commit/checksum upstream; verifikasi kompatibilitas perintah dengan integration test.
 2. Pisahkan API, worker VM, dan proxy WebSocket; tambah supervisi proses dan state persisten.
